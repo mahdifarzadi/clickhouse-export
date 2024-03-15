@@ -1,0 +1,8 @@
+host: localhost
+port: 9000
+database: default
+username: username
+password: password
+format: CSVWithNames
+query: "select * from table order by time"
+output-file: result.csv

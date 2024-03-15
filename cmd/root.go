@@ -23,7 +23,10 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"github.com/mahdifarzadi/clickhouse-export/export"
+	"github.com/spf13/pflag"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -44,7 +47,7 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Run: runExport,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -63,33 +66,46 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.clickhouse-export.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "~/.clickhouse-export.yaml", "config file (default is $HOME/.clickhouse-export.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().StringP("host", "H", "localhost", "Hostname")
+	rootCmd.Flags().StringP("port", "P", "9000", "Port")
+	rootCmd.Flags().StringP("database", "n", "default", "Database name")
+	rootCmd.Flags().StringP("username", "u", "", "Username")
+	rootCmd.Flags().StringP("password", "p", "", "Password")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".clickhouse-export" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".clickhouse-export")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
+	// Use config file from the flag.
+	viper.SetConfigFile(cfgFile)
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+func runExport(cmd *cobra.Command, args []string) {
+	cmd.Flags().Visit(func(flag *pflag.Flag) {
+		viper.Set(flag.Name, flag.Value)
+	})
+
+	config := export.GetConfig()
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(err)
+	}
+	fmt.Printf("config: %+v\n", config) // todo remove
+
+	exporter, err := export.New(config)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := exporter.BatchExport(context.Background()); err != nil {
+		panic(err)
+	}
+
 }

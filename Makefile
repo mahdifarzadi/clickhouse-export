@@ -11,4 +11,5 @@ run: build
 	./bin/clickhouse-export
 
 .PHONY: dev
-dev: build run
+dev: build
+	./bin/clickhouse-export -c clickhouse-export.yaml
